@@ -1,5 +1,5 @@
 #
-#       !!!! Do NOT edit this makefile with an editor which replace tabs by spaces !!!!   
+#       !!!! Do NOT edit this makefile with an editor which replace tabs by spaces !!!!
 #
 ##############################################################################################
 #
@@ -17,60 +17,40 @@
 ##############################################################################################
 # Start of default section
 #
-CC   = $(CCPREFIX)gcc -g
+#CC   = $(CCPREFIX)gcc -g
 CP   = $(CCPREFIX)objcopy
 AS   = $(CCPREFIX)gcc -x assembler-with-cpp
 INSTALL=install
- 
+
 ifdef PROJECT_VERSION
 override PROJECT_VERSION := -DPROJECT_VERSION=$(PROJECT_VERSION)
-endif 
+endif
 
 # standard version
 #MODBUS_LIBDIR = /usr/lib/modbus
 #INCDIRS = /usr/include/modbus
 
-# But we need libmodbus version >= 3.1.4 
-#   - older versions listen on all interface 
+# But we need libmodbus version >= 3.1.4
+#   - older versions listen on all interface
 #   - there was problem with tty name length
-MODBUSDIR = ../libmodbus/usr/local/
-MODBUS_LIBDIR = $(MODBUSDIR)/lib
-INCDIRS       = $(MODBUSDIR)/include
-
-LIBDIRS += $(MODBUS_LIBDIR)
 
 DSTDIR = .
 
 
 # List all user libraries here
-LIBS = modbus m
-
-# SYSTEMROOT should be defined on windows, so we use it to detect the OS
-ifdef SYSTEMROOT
-  CC += -D OS_WIN32
-  LDFLAGS2 = $(MODBUS_LIBDIR)/libmodbus.dll.a
-  LIBDIRS += /usr/i686-w64-mingw32/sys-root/mingw/lib
-  INCDIRS += gtk/include/gtk-3.0\
-             gtk/include/glib-2.0\
-             gtk/lib/glib-2.0/include\
-             gtk/include/pango-1.0\
-             gtk/include/cairo\
-             gtk/include/gdk-pixbuf-2.0\
-             gtk/include/atk-1.0
-  LIBS    += gtk-3-0\
-             glib-2.0-0\
-             gobject-2.0-0
-endif
+#LIBS = libmodbus m
+LIBS = m
 
 #list of src files to include in build process
 SPISRC = armspi.c
 SPISRC += spicrc.c
 SPISRC += armutil.c
 SPISRC += unipiutil.c
-SRC = $(SPISRC) nb_modbus.c virtual_regs.c
+# SRC = $(SPISRC) nb_modbus.c virtual_regs.c
+SRC = $(SPISRC) virtual_regs.c
 
-BINFILES = unipi_tcp_server fwspi fwserial unipihostname unipicheck
- 
+BINFILES = fwspi fwserial unipihostname unipicheck unipimqtt
+
 # Define optimisation level here
 #OPT = -Ofast
 #OPT = -Os
@@ -92,50 +72,37 @@ all: $(BINFILES)
 %.o: %.c
 	$(CC) -c $(LDFLAGS) -I . $(INCDIR) $(PROJECT_VERSION) $< -o $@
 
-
-.PHONY: fwspi unipi_tcp_server fwserial
-
-unipi_tcp_server: unipi_tcp_server.o $(OBJS) 
-	$(CC) unipi_tcp_server.o $(OBJS) $(LDFLAGS) -o $@
-	@chmod +x $@
+.PHONY: unipimqtt fwspi fwserial
 
 fwspi:  fwspi.o $(OBJS)
 	$(CC) fwspi.o $(OBJS) $(LDFLAGS) -o $@
 	@chmod +x $@
-	
+
 fwserial: fwserial.o armutil.o
 	$(CC) $+ $(LDFLAGS) -o $@
 	@chmod +x $@
 
-unipihostname:  unipihostname.o unipiutil.o
+unipihostname: unipihostname.o unipiutil.o
 	$(CC) unipihostname.o unipiutil.o -o $@
 	@chmod +x $@
 
 unipicheck:  unipicheck.o unipiutil.o
 	$(CC) unipicheck.o unipiutil.o -o $@
 	@chmod +x $@
-	
+
 bandwidth-client: bandwidth-client.o
 	$(CC) bandwidth-client.o $(LDFLAGS) -o $@
 
-
-# SYSTEMROOT should be defined on windows, so we use it to detect the OS
-ifdef SYSTEMROOT
-win32_serial.o: win32_serial.c
-	$(CC) -Wno-deprecated-declarations -c $(LDFLAGS) -I . $(INCDIR)  $< -o $@
-	
-fwserial-win: win32_serial.o armutil.o
-	$(CC) $+ $(LDFLAGS2) $(LDFLAGS) -o neuron_fw_utility
-endif
+unipimqtt: unipimqtt.o $(OBJS)
+	# $(CC) unipimqtt.o -o $@
+	$(CC) unipimqtt.o $(OBJS) $(LDFLAGS) -o $@
+	@chmod +x $@
 
 install:
 	$(INSTALL) -D $(BINFILES) -t $(DESTDIR)/opt/unipi/tools
-
 
 clean:
 	-rm -f *.o
 	-rm -f $(BINFILES)
 #	-rm -rf $(SRC:.c=.lst)
 #	-rm -f ../bin/*
-
-# *** EOF ***

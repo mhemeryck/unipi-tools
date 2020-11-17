@@ -12,6 +12,7 @@ src/unipi_tcp_server
 src/unipihostname
 src/unipicheck
 src/bandwidth-client
+src/unipimqtt
 .travis.yml
 .dir-locals.el
 .deps
@@ -26,3 +27,4 @@ Default/src/armutil.d
 Default/src/subdir.mk
 debian/tmp/
 debian/changelog
+tags
