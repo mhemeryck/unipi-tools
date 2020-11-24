@@ -1,4 +1,4 @@
-#include <unistd.h>
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,10 +58,10 @@ int main()
         }
         printf("Finished init\n");
         // read discrete bits
-        int address = 0;
-        int slave = 1;
-        int length = 1;
-        uint8_t *response = malloc(length * sizeof(uint8_t *));
+        int address = 14;
+        int slave = 2;
+        int length = 16;
+        uint8_t *response = malloc(2 * sizeof(uint8_t *));
         if (response == NULL) {
                 printf("Could not set up response array\n");
                 return -1;
@@ -72,8 +72,9 @@ int main()
                         printf("Error reading response: %d\n", n);
                         return n;
                 }
-                printf("Response: %x\n", response[0]);
-                sleep(1);
+                printf("Response: %d -- %d\n", response[0], response[1]);
+                struct timespec ts = { 0, 250e6 };
+                nanosleep(&ts, NULL);
         }
         free(response);
 
