@@ -58,6 +58,10 @@ int main()
         }
         printf("Finished init\n");
         // read discrete bits
+        //int address = 1004;
+        //int slave = 2;
+        //int length = 1;
+        //uint16_t *response = malloc(1 * sizeof(uint16_t *));
         int address = 14;
         int slave = 2;
         int length = 16;
@@ -68,11 +72,13 @@ int main()
         }
         while (1) {
                 int n = read_bits(arm[slave], address, length, response);
+                //int n = read_regs(arm[slave], address, length, response);
                 if (n < 0) {
                         printf("Error reading response: %d\n", n);
                         return n;
                 }
-                printf("Response: %d -- %d\n", response[0], response[1]);
+                //printf("Response: %d\n", response[0]);
+                printf("Response: %d - %d\n", response[0], response[1]);
                 struct timespec ts = { 0, 250e6 };
                 nanosleep(&ts, NULL);
         }
