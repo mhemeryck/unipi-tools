@@ -35,6 +35,19 @@ int add_arm(arm_handle ** armh, uint8_t index, const char *device, int speed)
         return 0;
 }
 
+int free_arm(arm_handle ** armh, int n_arms)
+{
+        if (armh == NULL) {
+                return -1;
+        }
+
+        int i;
+        for (i = 0; i < n_arms; i++) {
+                free(armh[i]);
+        }
+        return 0;
+}
+
 int main()
 {
         printf("Start init\n");
@@ -70,7 +83,8 @@ int main()
                 printf("Could not set up response array\n");
                 return -1;
         }
-        while (1) {
+        int counter = 0;
+        while (counter < 10) {
                 int n = read_bits(arm[slave], address, length, response);
                 //int n = read_regs(arm[slave], address, length, response);
                 if (n < 0) {
@@ -81,9 +95,12 @@ int main()
                 printf("Response: %d - %d\n", response[0], response[1]);
                 struct timespec ts = { 0, 250e6 };
                 nanosleep(&ts, NULL);
+                counter++;
         }
         free(response);
-
+        if (free_arm(arm, MAX_ARMS) != 0) {
+		printf("Issue freeing up arm handles\n");
+        }
         // free up arm handles
         return 0;
 }
