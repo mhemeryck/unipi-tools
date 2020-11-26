@@ -33,6 +33,19 @@ uint8_t nextpow2(uint8_t v)
         return v;
 }
 
+// Unwrap response array into values array individual values
+void unwrap(uint8_t * values, uint8_t * response, uint8_t length)
+{
+        int nbits = length / 8;
+        nbits = nbits > 0 ? nbits : 1;
+        int i, j;
+        for (i = 0; i < nbits; i++) {
+                for (j = 0; j < 8; j++) {
+                        values[(i * 8) + j] = (response[i] >> j) & 1;
+                }
+        }
+}
+
 int add_arm(arm_handle ** armh, uint8_t index, const char *device, int speed)
 {
         if (index >= MAX_ARMS) {        // Too many devices
@@ -90,25 +103,26 @@ int main()
         input_groups[0].address = 0;
         input_groups[0].length = 4;
         input_groups[0].slave = 0;
-        input_groups[2].address = 14;
+        input_groups[1].address = 14;
+        input_groups[1].length = 16;
+        input_groups[1].slave = 1;
+        input_groups[2].address = 0;
         input_groups[2].length = 16;
         input_groups[2].slave = 2;
 
-        input_groups[0].values =
-            malloc(nextpow2(input_groups[0].length) * sizeof(uint8_t));
-        if (input_groups[0].values == NULL) {
-                printf("Could not set up values array\n");
-                return -1;
-        }
-        input_groups[2].values =
-            malloc(nextpow2(input_groups[2].length) * sizeof(uint8_t));
-        if (input_groups[2].values == NULL) {
-                printf("Could not set up values array\n");
-                return -1;
+        int group_n;
+        for (group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
+                input_groups[group_n].values =
+                    malloc(nextpow2(input_groups[group_n].length) *
+                           sizeof(uint8_t));
+                if (input_groups[group_n].values == NULL) {
+                        printf("Could not set up values array\n");
+                        return -1;
+                }
         }
 
         // Check for group 2
-        int group_n = 2;
+        group_n = 2;
         int nbits = input_groups[group_n].length / 8;
         nbits = nbits > 0 ? nbits : 1;
         uint8_t *response = malloc(nbits * sizeof(uint8_t *));
@@ -117,7 +131,7 @@ int main()
                 return -1;
         }
         int ctr;
-        int i, j;
+        int i;
         for (ctr = 0; ctr < 100; ctr++) {
                 int n = read_bits(arm[input_groups[group_n].slave],
                                   input_groups[group_n].address,
@@ -128,13 +142,8 @@ int main()
                         return n;
                 }
                 printf("Response: %x %x\n", response[0], response[1]);
-                // Bit shift to get individual values
-                for (i = 0; i < nbits; i++) {
-                        for (j = 0; j < 8; j++) {
-                                input_groups[group_n].values[(8 * i) + j] =
-                                    (response[i] >> j) & 1;
-                        }
-                }
+                unwrap(input_groups[group_n].values, response,
+                       input_groups[group_n].length);
                 for (i = 0; i < input_groups[group_n].length; i++) {
                         if (response[1] != 0) {
                                 printf("(%d - %d) ", i,
@@ -145,8 +154,9 @@ int main()
                 nanosleep(&((struct timespec) { 0, 250e6 }), NULL);
         }
         free(response);
-        free(input_groups[0].values);
-        free(input_groups[2].values);
+        for (group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
+                free(input_groups[group_n].values);
+        }
         // free up arm handles
         if (free_arm(arm, MAX_ARMS)) {
                 printf("Issue freeing up arm handles\n");
