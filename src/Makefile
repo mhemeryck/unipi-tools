@@ -70,7 +70,7 @@ LDFLAGS = $(LIBDIR) $(LIB)
 all: $(BINFILES)
 
 %.o: %.c
-	$(CC) -c $(LDFLAGS) -I . $(INCDIR) $(PROJECT_VERSION) $< -o $@
+	$(CC) -c $(LDFLAGS) -std=c11 -I . $(INCDIR) $(PROJECT_VERSION) $< -o $@
 
 .PHONY: unipimqtt fwspi fwserial
 

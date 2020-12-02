@@ -38,9 +38,8 @@ void unwrap(uint8_t * values, uint8_t * response, uint8_t length)
 {
         int nbits = length / 8;
         nbits = nbits > 0 ? nbits : 1;
-        int i, j;
-        for (i = 0; i < nbits; i++) {
-                for (j = 0; j < 8; j++) {
+        for (int i = 0; i < nbits; i++) {
+                for (int j = 0; j < 8; j++) {
                         values[(i * 8) + j] = (response[i] >> j) & 1;
                 }
         }
@@ -72,8 +71,7 @@ int free_arm(arm_handle ** armh, int n_arms)
                 return -1;
         }
 
-        int i;
-        for (i = 0; i < n_arms; i++) {
+        for (int i = 0; i < n_arms; i++) {
                 free(armh[i]);
         }
         return 0;
@@ -85,8 +83,7 @@ int main()
         input_group input_groups[NINPUT_GROUPS];
 
         // init arm devices
-        int ai;
-        for (ai = 0; ai < MAX_ARMS; ai++) {
+        for (int ai = 0; ai < MAX_ARMS; ai++) {
                 arm[ai] = NULL;
                 char *dev = spi_devices[ai];
                 if ((dev != NULL) && (strlen(dev) > 0)) {
@@ -106,12 +103,11 @@ int main()
         input_groups[1].address = 14;
         input_groups[1].length = 16;
         input_groups[1].slave = 1;
-        input_groups[2].address = 0;
+        input_groups[2].address = 14;   // 0 for registers
         input_groups[2].length = 16;
         input_groups[2].slave = 2;
 
-        int group_n;
-        for (group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
+        for (int group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
                 input_groups[group_n].values =
                     malloc(nextpow2(input_groups[group_n].length) *
                            sizeof(uint8_t));
@@ -122,7 +118,7 @@ int main()
         }
 
         // Check for group 2
-        group_n = 2;
+        int group_n = 2;
         int nbits = input_groups[group_n].length / 8;
         nbits = nbits > 0 ? nbits : 1;
         uint8_t *response = malloc(nbits * sizeof(uint8_t *));
@@ -130,9 +126,7 @@ int main()
                 printf("Could not set up response array\n");
                 return -1;
         }
-        int ctr;
-        int i;
-        for (ctr = 0; ctr < 100; ctr++) {
+        for (int ctr = 0; ctr < 100; ctr++) {
                 int n = read_bits(arm[input_groups[group_n].slave],
                                   input_groups[group_n].address,
                                   input_groups[group_n].length,
@@ -144,7 +138,7 @@ int main()
                 printf("Response: %x %x\n", response[0], response[1]);
                 unwrap(input_groups[group_n].values, response,
                        input_groups[group_n].length);
-                for (i = 0; i < input_groups[group_n].length; i++) {
+                for (int i = 0; i < input_groups[group_n].length; i++) {
                         if (response[1] != 0) {
                                 printf("(%d - %d) ", i,
                                        input_groups[group_n].values[i]);
@@ -154,7 +148,7 @@ int main()
                 nanosleep(&((struct timespec) { 0, 250e6 }), NULL);
         }
         free(response);
-        for (group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
+        for (int group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
                 free(input_groups[group_n].values);
         }
         // free up arm handles
