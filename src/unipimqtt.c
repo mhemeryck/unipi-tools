@@ -15,7 +15,7 @@ static char *spi_devices[MAX_ARMS] =
     { "/dev/unipispi", "/dev/unipispi", "/dev/unipispi" };
 static int spi_speed[MAX_ARMS] = { 0, 0, 0 };
 
-static arm_handle *arm[MAX_ARMS];
+static arm_handle *arm[MAX_ARMS];       // TODO: do we want this global?
 
 typedef struct {
         uint8_t address;
@@ -90,7 +90,7 @@ void *read_group(void *void_grp)
         if (response == NULL) {
                 printf("Could not set up response array\n");
                 return NULL;
-                //return -1;
+                //return -1; // TODO: proper error handling
         }
         for (int ctr = 0; ctr < 100; ctr++) {
                 int n = read_bits(arm[grp->slave], grp->address, grp->length,
@@ -100,10 +100,10 @@ void *read_group(void *void_grp)
                         return NULL;
                         //return n;
                 }
-                printf("Response: %x %x\n", response[0], response[1]);
+                // printf("Response: %x %x\n", response[0], response[1]);
                 unwrap(grp->values, response, grp->length);
                 for (int i = 0; i < grp->length; i++) {
-                        if (response[1] != 0) {
+                        if (response[0] != 0 || response[1] != 0) {
                                 printf("(%d - %d) ", i, grp->values[i]);
                         }
                 }
@@ -136,10 +136,10 @@ int main()
         input_groups[0].address = 0;
         input_groups[0].length = 4;
         input_groups[0].slave = 0;
-        input_groups[1].address = 14;
+        input_groups[1].address = 0;    // 14 for inputs
         input_groups[1].length = 16;
         input_groups[1].slave = 1;
-        input_groups[2].address = 14;   // 0 for registers
+        input_groups[2].address = 0;    // 14 for inputs
         input_groups[2].length = 16;
         input_groups[2].slave = 2;
 
@@ -154,20 +154,24 @@ int main()
         }
 
         // Check for group 2
-        int group_n = 2;
         // Thread
-        pthread_t poll_thread;
-        if (pthread_create
-            (&poll_thread, NULL, read_group, &input_groups[group_n])) {
-                fprintf(stderr, "Error creating thread\n");
-                return -1;
+        pthread_t poll_thread[NINPUT_GROUPS];
+        for (int group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
+                // Split into threads
+                if (pthread_create
+                    (&poll_thread[group_n], NULL, read_group,
+                     &input_groups[group_n])) {
+                        fprintf(stderr, "Error creating thread\n");
+                        return -1;
+                }
         }
-
-        printf("Do something else in between\n");
-
-        if (pthread_join(poll_thread, NULL)) {
-                fprintf(stderr, "Error joining thread\n");
-                return -1;
+        // Join all thread again
+        for (int group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
+                // Wait for all 3 to have finished
+                if (pthread_join(poll_thread[group_n], NULL)) {
+                        fprintf(stderr, "Error joining thread\n");
+                        return -1;
+                }
         }
 
         for (int group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
