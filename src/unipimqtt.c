@@ -3,6 +3,7 @@
 #define UNIPIMQTT_DEBUG true
 #define _POSIX_C_SOURCE 199309L // nanosleep
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,9 +11,11 @@
 
 #include "armspi.h"
 
-char *spi_devices[MAX_ARMS] =
+static char *spi_devices[MAX_ARMS] =
     { "/dev/unipispi", "/dev/unipispi", "/dev/unipispi" };
-int spi_speed[MAX_ARMS] = { 0, 0, 0 };
+static int spi_speed[MAX_ARMS] = { 0, 0, 0 };
+
+static arm_handle *arm[MAX_ARMS];
 
 typedef struct {
         uint8_t address;
@@ -77,9 +80,42 @@ int free_arm(arm_handle ** armh, int n_arms)
         return 0;
 }
 
+void *read_group(void *void_grp)
+{
+        input_group *grp = (input_group *) void_grp;
+
+        int nbits = grp->length / 8;
+        nbits = nbits > 0 ? nbits : 1;
+        uint8_t *response = malloc(nbits * sizeof(uint8_t *));
+        if (response == NULL) {
+                printf("Could not set up response array\n");
+                return NULL;
+                //return -1;
+        }
+        for (int ctr = 0; ctr < 100; ctr++) {
+                int n = read_bits(arm[grp->slave], grp->address, grp->length,
+                                  response);
+                if (n < 0) {
+                        printf("Error reading response: %d\n", n);
+                        return NULL;
+                        //return n;
+                }
+                printf("Response: %x %x\n", response[0], response[1]);
+                unwrap(grp->values, response, grp->length);
+                for (int i = 0; i < grp->length; i++) {
+                        if (response[1] != 0) {
+                                printf("(%d - %d) ", i, grp->values[i]);
+                        }
+                }
+                printf("\n");
+                nanosleep(&((struct timespec) { 0, 250e6 }), NULL);
+        }
+        free(response);
+        return NULL;
+}
+
 int main()
 {
-        arm_handle *arm[MAX_ARMS];
         input_group input_groups[NINPUT_GROUPS];
 
         // init arm devices
@@ -119,35 +155,21 @@ int main()
 
         // Check for group 2
         int group_n = 2;
-        int nbits = input_groups[group_n].length / 8;
-        nbits = nbits > 0 ? nbits : 1;
-        uint8_t *response = malloc(nbits * sizeof(uint8_t *));
-        if (response == NULL) {
-                printf("Could not set up response array\n");
+        // Thread
+        pthread_t poll_thread;
+        if (pthread_create
+            (&poll_thread, NULL, read_group, &input_groups[group_n])) {
+                fprintf(stderr, "Error creating thread\n");
                 return -1;
         }
-        for (int ctr = 0; ctr < 100; ctr++) {
-                int n = read_bits(arm[input_groups[group_n].slave],
-                                  input_groups[group_n].address,
-                                  input_groups[group_n].length,
-                                  response);
-                if (n < 0) {
-                        printf("Error reading response: %d\n", n);
-                        return n;
-                }
-                printf("Response: %x %x\n", response[0], response[1]);
-                unwrap(input_groups[group_n].values, response,
-                       input_groups[group_n].length);
-                for (int i = 0; i < input_groups[group_n].length; i++) {
-                        if (response[1] != 0) {
-                                printf("(%d - %d) ", i,
-                                       input_groups[group_n].values[i]);
-                        }
-                }
-                printf("\n");
-                nanosleep(&((struct timespec) { 0, 250e6 }), NULL);
+
+        printf("Do something else in between\n");
+
+        if (pthread_join(poll_thread, NULL)) {
+                fprintf(stderr, "Error joining thread\n");
+                return -1;
         }
-        free(response);
+
         for (int group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
                 free(input_groups[group_n].values);
         }

@@ -39,7 +39,7 @@ DSTDIR = .
 
 # List all user libraries here
 #LIBS = libmodbus m
-LIBS = m
+LIBS = m pthread
 
 #list of src files to include in build process
 SPISRC = armspi.c
