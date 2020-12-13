@@ -10,6 +10,7 @@
 #include <time.h>
 
 #include "armspi.h"
+#include "armutil.h"
 
 static char *spi_devices[MAX_ARMS] =
     { "/dev/unipispi", "/dev/unipispi", "/dev/unipispi" };
@@ -132,6 +133,12 @@ int main()
                         }
                 }
         }
+
+        // Dump names
+        for (int i = 0; i < MAX_ARMS; i++) {
+                printf("Device %d - %s\n", i, arm_name(arm[i]->bv.hw_version));
+        }
+
         // init input groups (manual for now)
         input_groups[0].address = 0;
         input_groups[0].length = 4;
