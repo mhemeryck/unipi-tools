@@ -86,7 +86,7 @@ unipihostname: unipihostname.o unipiutil.o
 	$(CC) unipihostname.o unipiutil.o -o $@
 	@chmod +x $@
 
-unipicheck:  unipicheck.o unipiutil.o
+unipicheck: unipicheck.o unipiutil.o
 	$(CC) unipicheck.o unipiutil.o -o $@
 	@chmod +x $@
 

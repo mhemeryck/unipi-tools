@@ -2,7 +2,9 @@
 #define MAX_ARMS 3
 #define UNIPIMQTT_DEBUG true
 #define _POSIX_C_SOURCE 199309L // nanosleep
+#define MAX_VALUE_LENGTH 30     // Max length of values to query
 
+#include <math.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,11 +21,19 @@ static int spi_speed[MAX_ARMS] = { 0, 0, 0 };
 static arm_handle *arm[MAX_ARMS];       // TODO: do we want this global?
 
 typedef struct {
-        uint8_t address;
-        uint8_t length;
-        uint8_t slave;
-        uint8_t *values;
+        unsigned char address;
+        unsigned char length;
+        unsigned char slave;
+        unsigned char *values;
 } input_group;
+
+// millis gives the current time in milliseconds
+long millis()
+{
+        struct timespec _t;
+        clock_gettime(CLOCK_REALTIME, &_t);
+        return _t.tv_sec * 1000 + lround(_t.tv_nsec / 1.0e6);
+}
 
 // Find the next power of two for a uint8_t
 // This works in the sense that we propagate the MSB to all other bits
@@ -38,7 +48,7 @@ uint8_t nextpow2(uint8_t v)
 }
 
 // Unwrap response array into values array individual values
-void unwrap(uint8_t * values, uint8_t * response, uint8_t length)
+void unwrap(unsigned char *values, uint8_t * response, unsigned char length)
 {
         int nbits = length / 8;
         nbits = nbits > 0 ? nbits : 1;
@@ -85,14 +95,21 @@ void *read_group(void *void_grp)
 {
         input_group *grp = (input_group *) void_grp;
 
-        int nbits = grp->length / 8;
-        nbits = nbits > 0 ? nbits : 1;
+        int nbits = (int)ceil(grp->length / 8.0);
         uint8_t *response = malloc(nbits * sizeof(uint8_t *));
         if (response == NULL) {
                 printf("Could not set up response array\n");
                 return NULL;
                 //return -1; // TODO: proper error handling
         }
+        unsigned long reg = 0;
+        long counters[grp->length];
+        // init counters to zero
+        for (int i; i < grp->length; i++) {
+                counters[i] = 0;
+        }
+        long prevtime = 0;
+        long delta = 0;
         for (int ctr = 0; ctr < 100; ctr++) {
                 int n = read_bits(arm[grp->slave], grp->address, grp->length,
                                   response);
@@ -101,14 +118,40 @@ void *read_group(void *void_grp)
                         return NULL;
                         //return n;
                 }
-                // printf("Response: %x %x\n", response[0], response[1]);
-                unwrap(grp->values, response, grp->length);
-                for (int i = 0; i < grp->length; i++) {
-                        if (response[0] != 0 || response[1] != 0) {
-                                printf("(%d - %d) ", i, grp->values[i]);
+                //printf("Response: %x %x %x %x\n", response[0], response[1],
+                //       response[2], response[3]);
+                //unwrap(grp->values, response, grp->length);
+                //for (int i = 0; i < grp->length; i++) {
+                //        if (response[0] != 0 || response[1] != 0) {
+                //                printf("(%d - %d) ", i, grp->values[i]);
+                //        }
+                //}
+                //printf("\n");
+                unsigned long result = 0;
+                for (int i = 0; i < nbits; i++) {
+                        result |= response[i] << (i * 8);
+                }
+                //printf("%lu\n", result);
+                unsigned char prev, cur = 0;
+                delta = millis() - prevtime;
+                //if (result != reg) {
+                for (int i = 0; i < 8 * sizeof(unsigned long); i++) {
+                        prev = (reg >> i) & 0x1;
+                        cur = (result >> i) & 0x1;
+                        if (cur != 0) {
+                                counters[i] += delta;
+                        }
+                        //printf("%li\n", counters[i]);
+                        if (prev != cur) {
+                                printf("%d -- %d %d %li\n", i, prev,
+                                       cur, counters[i]);
+                                // reset counter
+                                counters[i] = 0;
                         }
                 }
-                printf("\n");
+                //}
+                reg = result;
+                prevtime = millis();
                 nanosleep(&((struct timespec) { 0, 250e6 }), NULL);
         }
         free(response);
@@ -144,10 +187,10 @@ int main()
         input_groups[0].length = 4;
         input_groups[0].slave = 0;
         input_groups[1].address = 0;    // 14 for inputs
-        input_groups[1].length = 16;
+        input_groups[1].length = 30;
         input_groups[1].slave = 1;
         input_groups[2].address = 0;    // 14 for inputs
-        input_groups[2].length = 16;
+        input_groups[2].length = 30;
         input_groups[2].slave = 2;
 
         for (int group_n = 0; group_n < NINPUT_GROUPS; group_n++) {
