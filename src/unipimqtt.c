@@ -140,8 +140,8 @@ void *read_group(void *void_grp)
                         cur = (result >> i) & 0x1;
                         if (cur != 0) {
                                 counters[i] += delta;
+                                printf("CNT: %d - %li\n", i, counters[i]);
                         }
-                        //printf("%li\n", counters[i]);
                         if (prev != cur) {
                                 printf("%d -- %d %d %li\n", i, prev,
                                        cur, counters[i]);
